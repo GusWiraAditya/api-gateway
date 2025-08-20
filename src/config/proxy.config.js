@@ -23,5 +23,20 @@ export default [
     path: '/api/auth',
     target: process.env.AUTH_SERVICE_URL + '/api/auth',
     auth: false,
+  },
+  {
+    path: '/api/admin',
+    target: process.env.AUTH_SERVICE_URL + '/api/admin',
+    auth: false,
+  },
+  {
+    path: '/api/credentials',
+    target: process.env.AUTH_SERVICE_URL + '/api/credentials',
+    auth: false,
+  },
+  {
+    path: '/api/profile-picture',
+    target: process.env.AUTH_SERVICE_URL + '/api/profile-picture',
+    auth: false,
   }
 ];
