@@ -1,37 +1,54 @@
-// src/middleware/auth.middleware.js
-const axios = require('axios');
+import axios from 'axios';
 
-const extractToken = (req) => {
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+export const verifyToken = async (req, res, next) => {
+  console.log("\n--- [MIDDLEWARE] Memulai verifikasi token ---");
+
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.split(" ")[1];
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.warn("[AUTH] Gagal: Header Authorization tidak valid atau tidak ada.");
+    return res.status(401).json({ message: "Akses ditolak. Token tidak disediakan." });
   }
-  return null;
-};
 
-const verifyToken = async (req, res, next) => {
-  const token = extractToken(req);
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized: Token tidak ditemukan." });
-  }
+  const token = authHeader.split(" ")[1];
+  const authServiceUrl = `${process.env.AUTH_SERVICE_URL}/api/auth/verify-token`;
+
+  console.log(`[AUTH] Token ditemukan, menghubungi Auth Service di: ${authServiceUrl}`);
 
   try {
-    const responseAuth = await axios.get(
-      `${process.env.AUTH_SERVICE_URL}/verify-token`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    const response = await axios.get(authServiceUrl, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 5000,
+    });
 
-    if (responseAuth.data?.valid) {
-      // Teruskan informasi user ke service lain melalui header yang aman
-      req.headers['x-user-info'] = JSON.stringify(responseAuth.data.user);
-      return next();
+    if (response.status === 200 && response.data?.valid) {
+      console.log("[AUTH] Sukses: Token valid.");
+      req.userInfo = response.data.user;
+      next();
+    } else {
+      console.warn("[AUTH] Gagal: Auth service merespon token tidak valid.");
+      return res.status(401).json({ message: "Token tidak valid." });
     }
   } catch (error) {
-    console.error("Token Verification Error:", error.message);
-    const status = error.response?.status || 500;
-    const message = error.response?.data?.message || "Verifikasi token gagal.";
-    return res.status(status).json({ message });
+    console.error("[AUTH] Terjadi error saat verifikasi token!");
+
+    if (error.code === 'ECONNABORTED') {
+      console.error("[AXIOS] Timeout: Koneksi ke Auth Service memakan waktu terlalu lama.");
+      return res.status(504).json({ message: "Gateway Timeout: Tidak dapat menghubungi layanan autentikasi." });
+    
+    } else if (error.response) {
+      console.error(`[AXIOS] Auth Service merespon dengan status ${error.response.status}:`, error.response.data);
+      return res.status(error.response.status).json({
+        message: error.response.data?.message || "Token tidak valid atau terjadi error di Auth Service.",
+      });
+
+    } else {
+      console.error("[AXIOS] Error jaringan atau setup:", error.message);
+      return res.status(502).json({ message: "Bad Gateway: Terjadi masalah saat menghubungi layanan lain." });
+    }
   }
 };
-
-module.exports = { verifyToken };

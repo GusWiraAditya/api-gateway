@@ -1,30 +1,31 @@
-// src/routes/proxy.routes.js
-const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const serviceRegistry = require('../config/proxy.config');
-const { verifyToken } = require('../middleware/auth.middleware');
+import { Router } from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import routes from '../config/proxy.config.js'; 
+import { verifyToken } from '../middleware/auth.middleware.js';
+const router = Router();
 
-const router = express.Router();
-
-serviceRegistry.forEach(({ path, target, auth }) => {
-  const proxyOptions = {
-    target,
+routes.forEach(route => {
+  const proxy = createProxyMiddleware({
+    target: route.target,
     changeOrigin: true,
-    onProxyReq: (proxyReq, req) => {
-      if (req.headers['x-user-info']) {
-        proxyReq.setHeader('x-user-info', req.headers['x-user-info']);
-      }
+    
+    pathRewrite: {
+        [`^${route.path}`]: '',
     },
-  };
-  
-  if (auth) {
-    router.use(path, verifyToken, createProxyMiddleware(proxyOptions));
+
+    onError: (err, req, res) => {
+        console.error('Proxy Error:', err);
+        res.status(500).json({ message: 'Proxy Error. Could not connect to the service.' });
+    }
+  });
+
+  if (route.auth) {
+    console.log(`[PROXY] Membuat rute aman: ${route.path} -> ${route.target}`);
+    router.use(route.path, verifyToken, proxy);
   } else {
-    // Untuk path seperti '/api/auth' yang tidak perlu token, langsung proxy
-    // pathRewrite mungkin diperlukan di sini jika path di service berbeda
-    // Contoh: pathRewrite: {'^/api/auth': '/auth'}
-    router.use(path, createProxyMiddleware(proxyOptions));
+    console.log(`[PROXY] Membuat rute publik: ${route.path} -> ${route.target}`);
+    router.use(route.path, proxy);
   }
 });
 
-module.exports = router;
+export default router;
