@@ -10,6 +10,22 @@ const INTERNAL_SECRET = process.env.INTERNAL_SECRET_KEY;
 if (!INTERNAL_SECRET) {
   throw new Error("FATAL ERROR: INTERNAL_SECRET_KEY is not defined.");
 }
+const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY;
+if (!ADMIN_SECRET) {
+  throw new Error("FATAL ERROR: ADMIN_SECRET_KEY is not defined.");
+}
+const USER_SECRET = process.env.USER_SECRET_KEY;
+if (!USER_SECRET) {
+  throw new Error("FATAL ERROR: USER_SECRET_KEY is not defined.");
+}
+const LAYANAN_SECRET = process.env.LAYANAN_SECRET_KEY;
+if (!LAYANAN_SECRET) {
+  throw new Error("FATAL ERROR: LAYANAN_SECRET_KEY is not defined.");
+}
+const AUTH_SECRET = process.env.AUTH_SECRET_KEY;
+if (!AUTH_SECRET) {
+  throw new Error("FATAL ERROR: AUTH_SECRET_KEY is not defined.");
+}
 
 console.log("--- [DEBUG-ROUTER] Konfigurasi router proxy sedang dimuat ---");
 
@@ -29,7 +45,10 @@ routes.forEach((route) => {
         console.log(
           `[DEBUG-PROXY] onProxyReq terpicu untuk rute: ${req.originalUrl}.`
         );
-        proxyReq.setHeader("X-Internal-Secret", INTERNAL_SECRET);
+        const secretKey = route.secret; 
+        if (secretKey) {
+          proxyReq.setHeader('X-Internal-Secret', secretKey);
+        }
         if (req.userInfo) {
           proxyReq.setHeader("X-User-Info", JSON.stringify(req.userInfo));
         }
